@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# #!/usr/bin/env python3
 
 from flask import Flask, make_response, jsonify, request, session
 from flask_migrate import Migrate
@@ -19,24 +19,18 @@ db.init_app(app)
 api = Api(app)
 
 class ClearSession(Resource):
-
     def delete(self):
-    
         session['page_views'] = None
         session['user_id'] = None
-
         return {}, 204
 
 class IndexArticle(Resource):
-    
     def get(self):
         articles = [article.to_dict() for article in Article.query.all()]
         return make_response(jsonify(articles), 200)
 
 class ShowArticle(Resource):
-
     def get(self, id):
-
         article = Article.query.filter(Article.id == id).first()
         article_json = article.to_dict()
 
@@ -52,31 +46,23 @@ class ShowArticle(Resource):
         return article_json, 200
 
 class Login(Resource):
-
     def post(self):
-        
         username = request.get_json().get('username')
         user = User.query.filter(User.username == username).first()
 
         if user:
-        
             session['user_id'] = user.id
             return user.to_dict(), 200
 
         return {}, 401
 
 class Logout(Resource):
-
     def delete(self):
-
         session['user_id'] = None
-        
         return {}, 204
 
 class CheckSession(Resource):
-
     def get(self):
-        
         user_id = session['user_id']
         if user_id:
             user = User.query.filter(User.id == user_id).first()
@@ -85,15 +71,33 @@ class CheckSession(Resource):
         return {}, 401
 
 class MemberOnlyIndex(Resource):
-    
     def get(self):
-        pass
+        # Check if the user is signed in
+        if not session.get('user_id'):
+            return {'message': 'Unauthorized access. Please log in to view member-only articles.'}, 401
+        
+        # Get all member-only articles
+        member_only_articles = [article.to_dict() for article in Article.query.filter_by(is_member_only=True).all()]
+        return make_response(jsonify(member_only_articles), 200)
+
 
 class MemberOnlyArticle(Resource):
-    
     def get(self, id):
-        pass
+        # Check if the user is signed in
+        if not session.get('user_id'):
+            return {'message': 'Unauthorized access. Please log in to view this article.'}, 401
+        
+        # Get the specific member-only article by ID
+        article = Article.query.filter(Article.id == id, Article.is_member_only == True).first()
+        
+        if not article:
+            return {'message': 'Article not found or not a member-only article.'}, 404
+        
+        article_json = article.to_dict()
+        return make_response(jsonify(article_json), 200)
 
+
+# API resource routing
 api.add_resource(ClearSession, '/clear', endpoint='clear')
 api.add_resource(IndexArticle, '/articles', endpoint='article_list')
 api.add_resource(ShowArticle, '/articles/<int:id>', endpoint='show_article')
@@ -103,6 +107,6 @@ api.add_resource(CheckSession, '/check_session', endpoint='check_session')
 api.add_resource(MemberOnlyIndex, '/members_only_articles', endpoint='member_index')
 api.add_resource(MemberOnlyArticle, '/members_only_articles/<int:id>', endpoint='member_article')
 
-
 if __name__ == '__main__':
     app.run(port=5555, debug=True)
+
